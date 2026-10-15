@@ -12,41 +12,7 @@ metadata:
 #       revision: main
 #     remotes:
 #       origin: https://github.com/xxx.git
-components:
-    - attributes:
-        container-overrides:
-          securityContext:
-            allowPrivilegeEscalation: true
-            capabilities:
-              add:
-                - SETUID
-                - SETGID
-            procMount: Unmasked
-            runAsUser: 1000
-        pod-overrides:
-          metadata:
-            annotations:
-              io.kubernetes.cri-o.Devices: '/dev/fuse,/dev/net/tun'
-          spec:
-            hostUsers: false
-      container:
-        args:
-          - tail
-          - '-f'
-          - /dev/null
-        cpuLimit: '2'
-        cpuRequest: 250m
-        image: 'quay.io/devfile/universal-developer-image:ubi10-latest'
-        memoryLimit: 2Gi
-        memoryRequest: 2Gi
-        mountSources: true
-        sourceMapping: /projects
-      name: tools
-commands:
-- exec:
-    commandLine: 'echo "user:1001:64535" > /etc/subuid && echo "user:1001:64535" > /etc/subgid && podman system migrate'
-    component: tools
-  id: fix-subids
-events:
-  preStart:
-    - fix-subids
+parent:
+      kubernetes:
+        name: nested-podman
+        namespace: npe-dev
