@@ -1,8 +1,12 @@
 schemaVersion: 2.3.0
-attributes:
-  controller.devfile.io/storage-type: per-workspace
 metadata:
   name: frappe-dev
+attributes:
+  controller.devfile.io/scc: nested-container
+parent:
+  kubernetes:
+    name: nested-podman
+    namespace: openshift-devspaces
 # dependentProjects:
 # - name: dep1
 #   git:
@@ -11,7 +15,3 @@ metadata:
 #       revision: main
 #     remotes:
 #       origin: https://github.com/xxx.git
-parent:
-  kubernetes:
-    name: nested-podman
-    namespace: openshift-devspaces
