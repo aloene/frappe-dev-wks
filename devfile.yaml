@@ -15,4 +15,4 @@ metadata:
 parent:
       kubernetes:
         name: nested-podman
-        namespace: npe-dev
+        namespace: openshift-devspaces
