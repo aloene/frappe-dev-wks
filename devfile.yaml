@@ -1,7 +1,6 @@
 schemaVersion: 2.3.0
 attributes:
   controller.devfile.io/storage-type: per-workspace
-  controller.devfile.io/scc: nested-container
 metadata:
   name: frappe-dev
 # dependentProjects:
