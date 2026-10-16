@@ -1,6 +1,6 @@
 schemaVersion: 2.2.2
 metadata:
-  name: frappe-dev
+  name: frappe-dev2
 attributes:
   controller.devfile.io/scc: nested-container
 parent:
