@@ -1,17 +1,245 @@
+# Frappe development in OpenShift Dev Spaces.
+#
+# All components run in ONE pod and share localhost. The usual service names
+# are mapped to 127.0.0.1 (hostAliases), so the bench uses "mariadb",
+# "redis-cache"... as in the frappe_docker dev container. Two services cannot
+# share a port, so redis-queue listens on 6380 and the SeaweedFS volume
+# server on 8081 (8080 is Keycloak).
+#
+# First start: run the tasks "1. bench init", "2. new site", "3. start"
+# (Terminal > Run Task > devfile).
 schemaVersion: 2.2.2
 metadata:
-  name: frappe-dev2
+  name: frappe-dev
+  displayName: Frappe development
+
+# Development-only credentials. The services are reachable only inside the
+# pod, or through Dev Spaces routes that require your OpenShift login
+# (secure: true). Change them before committing if your repository is public.
+variables:
+  frappe-branch: version-16
+  site-name: dev.localhost
+  db-root-password: frappe-dev-root
+  admin-password: frappe-dev-admin
+  keycloak-admin-password: keycloak-dev-admin
+  s3-access-key: frappe-dev
+  s3-secret-key: frappe-dev-secret
+
 attributes:
-  controller.devfile.io/scc: nested-container
-parent:
-  kubernetes:
-    name: nested-podman
-    namespace: openshift-devspaces
-# dependentProjects:
-# - name: dep1
-#   git:
-#     checkoutFrom:
-#       remote: origin
-#       revision: main
-#     remotes:
-#       origin: https://github.com/xxx.git
+  pod-overrides:
+    spec:
+      hostAliases:
+        - ip: "127.0.0.1"
+          hostnames: [mariadb, redis-cache, redis-queue, mailpit, seaweedfs, keycloak]
+
+components:
+  # -- Frappe bench: editor, terminals and `bench start` run here ------------
+  - name: frappe
+    container:
+      image: docker.io/frappe/bench:v5.31.0
+      command: ["tail", "-f", "/dev/null"]
+      mountSources: true
+      memoryRequest: 2Gi
+      memoryLimit: 6Gi
+      cpuRequest: 500m
+      cpuLimit: "4"
+      env:
+        - name: NO_PROXY
+          value: localhost,127.0.0.1,mariadb,redis-cache,redis-queue,mailpit,seaweedfs,keycloak
+        - name: no_proxy
+          value: localhost,127.0.0.1,mariadb,redis-cache,redis-queue,mailpit,seaweedfs,keycloak
+      endpoints:
+        - name: frappe-web
+          targetPort: 8000
+          exposure: public
+          protocol: http
+          secure: true
+        - name: frappe-rt
+          targetPort: 9000
+          exposure: public
+          protocol: http
+          secure: true
+
+  # -- MariaDB -----------------------------------------------------------------
+  - name: mariadb
+    container:
+      image: docker.io/mariadb:11.8
+      memoryLimit: 1Gi
+      env:
+        - name: MARIADB_ROOT_PASSWORD
+          value: "{{db-root-password}}"
+        - name: MARIADB_AUTO_UPGRADE
+          value: "1"
+      # Server flags Frappe requires; the image's entrypoint adds `mariadbd`.
+      args:
+        - --character-set-server=utf8mb4
+        - --collation-server=utf8mb4_unicode_ci
+        - --skip-character-set-client-handshake
+        - --skip-innodb-read-only-compressed
+      volumeMounts:
+        - name: mariadb-data
+          path: /var/lib/mysql
+      endpoints:
+        - name: mariadb
+          targetPort: 3306
+          exposure: none
+
+  # -- Redis: cache on 6379, queue on 6380 --------------------------------------
+  - name: redis-cache
+    container:
+      image: docker.io/redis:8.10-alpine
+      memoryLimit: 256Mi
+      args: ["redis-server", "--port", "6379", "--dir", "/tmp"]
+      endpoints:
+        - name: redis-cache
+          targetPort: 6379
+          exposure: none
+
+  - name: redis-queue
+    container:
+      image: docker.io/redis:8.10-alpine
+      memoryLimit: 256Mi
+      args: ["redis-server", "--port", "6380", "--dir", "/tmp"]
+      endpoints:
+        - name: redis-queue
+          targetPort: 6380
+          exposure: none
+
+  # -- Mailpit: SMTP on mailpit:1025, web UI on the mailpit-ui URL --------------
+  - name: mailpit
+    container:
+      image: docker.io/axllent/mailpit:v1.31.5
+      memoryLimit: 128Mi
+      env:
+        - name: MP_SMTP_AUTH_ACCEPT_ANY
+          value: "1"
+        - name: MP_SMTP_AUTH_ALLOW_INSECURE
+          value: "1"
+      endpoints:
+        - name: mailpit-ui
+          targetPort: 8025
+          exposure: public
+          protocol: http
+          secure: true
+        - name: smtp
+          targetPort: 1025
+          exposure: none
+
+  # -- SeaweedFS: S3 API on http://seaweedfs:8333 -------------------------------
+  - name: seaweedfs
+    container:
+      image: docker.io/chrislusf/seaweedfs:4.48
+      memoryLimit: 512Mi
+      command: ["/bin/sh", "-c"]
+      args:
+        - |
+          cat > /tmp/s3.json <<'EOF'
+          {"identities":[{"name":"dev",
+            "credentials":[{"accessKey":"{{s3-access-key}}","secretKey":"{{s3-secret-key}}"}],
+            "actions":["Admin","Read","Write","List","Tagging"]}]}
+          EOF
+          exec weed server -dir=/data -volume.port=8081 \
+            -filer -s3 -s3.port=8333 -s3.config=/tmp/s3.json
+      volumeMounts:
+        - name: seaweedfs-data
+          path: /data
+      endpoints:
+        - name: s3-api
+          targetPort: 8333
+          exposure: none
+
+  # -- Keycloak: admin console on the keycloak URL, user admin ------------------
+  - name: keycloak
+    container:
+      image: quay.io/keycloak/keycloak:26.8.1
+      memoryLimit: 1Gi
+      args: ["start-dev", "--http-port=8080"]
+      env:
+        - name: KC_BOOTSTRAP_ADMIN_USERNAME
+          value: admin
+        - name: KC_BOOTSTRAP_ADMIN_PASSWORD
+          value: "{{keycloak-admin-password}}"
+        # 9000 (Keycloak's default management port) is Frappe realtime.
+        - name: KC_HTTP_MANAGEMENT_PORT
+          value: "9010"
+        # The Dev Spaces route terminates TLS in front of Keycloak.
+        - name: KC_PROXY_HEADERS
+          value: xforwarded
+      volumeMounts:
+        - name: keycloak-data
+          path: /opt/keycloak/data
+      endpoints:
+        - name: keycloak
+          targetPort: 8080
+          exposure: public
+          protocol: http
+          secure: true
+
+  # -- Volumes (the bench itself lives in /projects, which is persistent) ------
+  - name: mariadb-data
+    volume:
+      size: 5Gi
+  - name: seaweedfs-data
+    volume:
+      size: 2Gi
+  - name: keycloak-data
+    volume:
+      size: 1Gi
+
+commands:
+  - id: bench-init
+    exec:
+      label: "1. bench init"
+      component: frappe
+      workingDir: ${PROJECTS_ROOT}
+      commandLine: >-
+        if [ ! -d frappe-bench ]; then
+        bench init --skip-redis-config-generation
+        --frappe-branch {{frappe-branch}} frappe-bench || exit 1;
+        fi &&
+        cd frappe-bench &&
+        bench set-config -g db_host mariadb &&
+        bench set-config -g redis_cache redis://redis-cache:6379 &&
+        bench set-config -g redis_queue redis://redis-queue:6380 &&
+        if ! grep -q -- '--host' Procfile; then
+        sed -i 's/bench serve --port 8000/bench serve --host 0.0.0.0 --port 8000/' Procfile;
+        fi
+      group:
+        kind: build
+
+  - id: new-site
+    exec:
+      label: "2. new site"
+      component: frappe
+      workingDir: ${PROJECTS_ROOT}/frappe-bench
+      # `bench use` makes it the default site, so it answers on the Dev Spaces
+      # URL whatever host name the route gives it.
+      commandLine: >-
+        bench new-site {{site-name}}
+        --db-root-password '{{db-root-password}}'
+        --admin-password '{{admin-password}}'
+        --mariadb-user-host-login-scope='%' &&
+        bench use {{site-name}} &&
+        bench --site {{site-name}} set-config developer_mode 1 &&
+        bench --site {{site-name}} clear-cache
+      group:
+        kind: build
+
+  - id: start
+    exec:
+      label: "3. start"
+      component: frappe
+      workingDir: ${PROJECTS_ROOT}/frappe-bench
+      commandLine: bench start
+      group:
+        kind: run
+        isDefault: true
+
+  - id: migrate
+    exec:
+      label: "migrate"
+      component: frappe
+      workingDir: ${PROJECTS_ROOT}/frappe-bench
+      commandLine: bench --site {{site-name}} migrate
+      group:
+        kind: build
