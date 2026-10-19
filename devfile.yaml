@@ -137,72 +137,72 @@ components:
           targetPort: 1025
           exposure: none
 
-  # -- SeaweedFS: S3 API on http://seaweedfs:8333 -------------------------------
-  - name: seaweedfs
-    container:
-      image: docker.io/chrislusf/seaweedfs:4.48
-      memoryRequest: 512Mi
-      memoryLimit: 512Mi
-      cpuRequest: 100m
-      cpuLimit: 100m
-      command: ["/bin/sh", "-c"]
-      args:
-        - |
-          cat > /tmp/s3.json <<'EOF'
-          {"identities":[{"name":"dev",
-            "credentials":[{"accessKey":"{{s3-access-key}}","secretKey":"{{s3-secret-key}}"}],
-            "actions":["Admin","Read","Write","List","Tagging"]}]}
-          EOF
-          exec weed server -dir=/data -volume.port=8081 \
-            -filer -s3 -s3.port=8333 -s3.config=/tmp/s3.json
-      volumeMounts:
-        - name: seaweedfs-data
-          path: /data
-      endpoints:
-        - name: s3-api
-          targetPort: 8333
-          exposure: none
+  # # -- SeaweedFS: S3 API on http://seaweedfs:8333 -------------------------------
+  # - name: seaweedfs
+  #   container:
+  #     image: docker.io/chrislusf/seaweedfs:4.48
+  #     memoryRequest: 512Mi
+  #     memoryLimit: 512Mi
+  #     cpuRequest: 100m
+  #     cpuLimit: 100m
+  #     command: ["/bin/sh", "-c"]
+  #     args:
+  #       - |
+  #         cat > /tmp/s3.json <<'EOF'
+  #         {"identities":[{"name":"dev",
+  #           "credentials":[{"accessKey":"{{s3-access-key}}","secretKey":"{{s3-secret-key}}"}],
+  #           "actions":["Admin","Read","Write","List","Tagging"]}]}
+  #         EOF
+  #         exec weed server -dir=/data -volume.port=8081 \
+  #           -filer -s3 -s3.port=8333 -s3.config=/tmp/s3.json
+  #     volumeMounts:
+  #       - name: seaweedfs-data
+  #         path: /data
+  #     endpoints:
+  #       - name: s3-api
+  #         targetPort: 8333
+  #         exposure: none
 
-  # -- Keycloak: admin console on the keycloak URL, user admin ------------------
-  - name: keycloak
-    container:
-      image: quay.io/keycloak/keycloak:26.8.1
-      memoryRequest: 512Mi
-      memoryLimit: 512Mi
-      cpuRequest: 100m
-      cpuLimit: 100m
-      args: ["start-dev", "--http-port=8080"]
-      env:
-        - name: KC_BOOTSTRAP_ADMIN_USERNAME
-          value: admin
-        - name: KC_BOOTSTRAP_ADMIN_PASSWORD
-          value: "{{keycloak-admin-password}}"
-        # 9000 (Keycloak's default management port) is Frappe realtime.
-        - name: KC_HTTP_MANAGEMENT_PORT
-          value: "9010"
-        # The Dev Spaces route terminates TLS in front of Keycloak.
-        - name: KC_PROXY_HEADERS
-          value: xforwarded
-      volumeMounts:
-        - name: keycloak-data
-          path: /opt/keycloak/data
-      endpoints:
-        - name: keycloak
-          targetPort: 8080
-          exposure: public
-          protocol: http
-          secure: true
+  # # -- Keycloak: admin console on the keycloak URL, user admin ------------------
+  # - name: keycloak
+  #   container:
+  #     image: quay.io/keycloak/keycloak:26.8.1
+  #     memoryRequest: 512Mi
+  #     memoryLimit: 512Mi
+  #     cpuRequest: 100m
+  #     cpuLimit: 100m
+  #     args: ["start-dev", "--http-port=8080"]
+  #     env:
+  #       - name: KC_BOOTSTRAP_ADMIN_USERNAME
+  #         value: admin
+  #       - name: KC_BOOTSTRAP_ADMIN_PASSWORD
+  #         value: "{{keycloak-admin-password}}"
+  #       # 9000 (Keycloak's default management port) is Frappe realtime.
+  #       - name: KC_HTTP_MANAGEMENT_PORT
+  #         value: "9010"
+  #       # The Dev Spaces route terminates TLS in front of Keycloak.
+  #       - name: KC_PROXY_HEADERS
+  #         value: xforwarded
+  #     volumeMounts:
+  #       - name: keycloak-data
+  #         path: /opt/keycloak/data
+  #     endpoints:
+  #       - name: keycloak
+  #         targetPort: 8080
+  #         exposure: public
+  #         protocol: http
+  #         secure: true
 
   # -- Volumes (the bench itself lives in /projects, which is persistent) ------
   - name: mariadb-data
     volume:
       size: 2Gi
-  - name: seaweedfs-data
-    volume:
-      size: 2Gi
-  - name: keycloak-data
-    volume:
-      size: 1Gi
+  # - name: seaweedfs-data
+  #   volume:
+  #     size: 2Gi
+  # - name: keycloak-data
+  #   volume:
+  #     size: 1Gi
 
 commands:
   - id: bench-init
