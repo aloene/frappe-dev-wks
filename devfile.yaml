@@ -39,9 +39,10 @@ components:
       image: docker.io/frappe/bench:v5.31.0
       command: ["tail", "-f", "/dev/null"]
       mountSources: true
-      memoryRequest: 2Gi
-      memoryLimit: 2Gi
+      memoryRequest: 1Gi
+      memoryLimit: 1Gi
       cpuRequest: 500m
+      cpuLimit: 500m
       env:
         - name: NO_PROXY
           value: localhost,127.0.0.1,mariadb,redis-cache,redis-queue,mailpit,seaweedfs,keycloak
@@ -63,7 +64,10 @@ components:
   - name: mariadb
     container:
       image: docker.io/mariadb:11.8
+      memoryRequest: 1Gi
       memoryLimit: 1Gi
+      cpuRequest: 500m
+      cpuLimit: 500m
       env:
         - name: MARIADB_ROOT_PASSWORD
           value: "{{db-root-password}}"
@@ -87,7 +91,10 @@ components:
   - name: redis-cache
     container:
       image: docker.io/redis:8.10-alpine
+      memoryRequest: 256Mi
       memoryLimit: 256Mi
+      cpuRequest: 100m
+      cpuLimit: 100m
       args: ["redis-server", "--port", "6379", "--dir", "/tmp"]
       endpoints:
         - name: redis-cache
@@ -97,7 +104,10 @@ components:
   - name: redis-queue
     container:
       image: docker.io/redis:8.10-alpine
+      memoryRequest: 256Mi
       memoryLimit: 256Mi
+      cpuRequest: 100m
+      cpuLimit: 100m
       args: ["redis-server", "--port", "6380", "--dir", "/tmp"]
       endpoints:
         - name: redis-queue
@@ -108,7 +118,10 @@ components:
   - name: mailpit
     container:
       image: docker.io/axllent/mailpit:v1.31.5
+      memoryRequest: 128Mi
       memoryLimit: 128Mi
+      cpuRequest: 100m
+      cpuLimit: 100m
       env:
         - name: MP_SMTP_AUTH_ACCEPT_ANY
           value: "1"
@@ -128,7 +141,10 @@ components:
   - name: seaweedfs
     container:
       image: docker.io/chrislusf/seaweedfs:4.48
+      memoryRequest: 512Mi
       memoryLimit: 512Mi
+      cpuRequest: 100m
+      cpuLimit: 100m
       command: ["/bin/sh", "-c"]
       args:
         - |
@@ -151,7 +167,10 @@ components:
   - name: keycloak
     container:
       image: quay.io/keycloak/keycloak:26.8.1
-      memoryLimit: 1Gi
+      memoryRequest: 512Mi
+      memoryLimit: 512Mi
+      cpuRequest: 100m
+      cpuLimit: 100m
       args: ["start-dev", "--http-port=8080"]
       env:
         - name: KC_BOOTSTRAP_ADMIN_USERNAME
