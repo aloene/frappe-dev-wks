@@ -39,10 +39,10 @@ components:
       image: docker.io/frappe/bench:v5.31.0
       command: ["tail", "-f", "/dev/null"]
       mountSources: true
-      memoryRequest: 512Mi
-      memoryLimit: 512Mi
-      cpuRequest: 100m
-      cpuLimit: 100m
+      memoryRequest: 1Gi
+      memoryLimit: 1Gi
+      cpuRequest: 500m
+      cpuLimit: 500m
       env:
         - name: NO_PROXY
           value: localhost,127.0.0.1,.svc,.cluster.local,kubernetes.default.svc,172.30.0.1,172.30.0.0/16,10.128.0.0/14,mariadb,redis-cache,redis-queue,mailpit,seaweedfs,keycloak
