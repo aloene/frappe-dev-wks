@@ -45,9 +45,9 @@ components:
       cpuLimit: 100m
       env:
         - name: NO_PROXY
-          value: localhost,127.0.0.1,mariadb,redis-cache,redis-queue,mailpit,seaweedfs,keycloak
+          value: localhost,127.0.0.1,.svc,.cluster.local,kubernetes.default.svc,172.30.0.1,172.30.0.0/16,10.128.0.0/14,mariadb,redis-cache,redis-queue,mailpit,seaweedfs,keycloak
         - name: no_proxy
-          value: localhost,127.0.0.1,mariadb,redis-cache,redis-queue,mailpit,seaweedfs,keycloak
+          value: localhost,127.0.0.1,.svc,.cluster.local,kubernetes.default.svc,172.30.0.1,172.30.0.0/16,10.128.0.0/14,mariadb,redis-cache,redis-queue,mailpit,seaweedfs,keycloak
       endpoints:
         - name: frappe-web
           targetPort: 8000
