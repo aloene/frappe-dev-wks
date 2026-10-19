@@ -40,9 +40,8 @@ components:
       command: ["tail", "-f", "/dev/null"]
       mountSources: true
       memoryRequest: 2Gi
-      memoryLimit: 6Gi
+      memoryLimit: 2Gi
       cpuRequest: 500m
-      cpuLimit: "4"
       env:
         - name: NO_PROXY
           value: localhost,127.0.0.1,mariadb,redis-cache,redis-queue,mailpit,seaweedfs,keycloak
@@ -178,7 +177,7 @@ components:
   # -- Volumes (the bench itself lives in /projects, which is persistent) ------
   - name: mariadb-data
     volume:
-      size: 5Gi
+      size: 2Gi
   - name: seaweedfs-data
     volume:
       size: 2Gi
